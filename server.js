@@ -93,26 +93,32 @@ app.get("/injection/history/:id", async (req, res) => {
 // ADD new patient + record
 // =========================
 app.post("/injection/add", async (req, res) => {
-  try{
+  try {
     const { id, name, record } = req.body;
 
-    // Convert invalid Japanese string "中止" into NULL
-    const fixedNextDate =
-      nextdate === "中止" || nextdate === "" ? null : nextdate;
+    if (!id || !record)
+      return res.status(400).json({ error: "invalid body" });
 
-    const fixedInjectionDate =
-      injectiondate === "中止" || injectiondate === "" ? null : injectiondate;
-    
-    if(!id || !record) return res.status(400).json({ error: "invalid body" });
+    // Fix dates: convert "中止" or "" into NULL
+    const fixedStart =
+      record.start === "中止" || record.start === "" ? null : record.start;
 
+    const fixedStop =
+      record.stop === "中止" || record.stop === "" ? null : record.stop;
+
+    const fixedNext =
+      record.next === "中止" || record.next === "" ? null : record.next;
+
+    // Insert or update patient
     await pool.query(
       `INSERT INTO injection_patients (patientid, name)
        VALUES ($1, $2)
-       ON CONFLICT (patientid) 
+       ON CONFLICT (patientid)
        DO UPDATE SET name = EXCLUDED.name`,
       [id, name || null]
     );
 
+    // Insert new injection record
     await pool.query(
       `INSERT INTO injection_records
         (patientid, facility, type, startdate, stopdate, nextdate, note)
@@ -121,15 +127,15 @@ app.post("/injection/add", async (req, res) => {
         id,
         record.facility || null,
         record.type || null,
-        record.start || null,
-        record.stop || null,
-        record.next || null,
+        fixedStart,
+        fixedStop,
+        fixedNext,
         record.note || null
       ]
     );
 
     res.json({ status: "ok" });
-  }catch(err){
+  } catch (err) {
     handleError(res, err);
   }
 });
