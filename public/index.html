@@ -188,17 +188,31 @@ function resetForm(){
   document.getElementById("addBtn").disabled = false;
 }
 
-async function loadList(){
-  try{
+async function loadList() {
+  try {
     const res = await fetch("/injection/all");
-    if(!res.ok) throw new Error(`一覧取得に失敗しました (${res.status})`);
-    const rows = await res.json();
+    if (!res.ok) throw new Error(`一覧取得に失敗しました (${res.status})`);
+    let rows = await res.json();
+
+    // ---- SORTING LOGIC ----
+    rows.sort((a, b) => {
+      const da = a.nextdate ? new Date(a.nextdate) : null;
+      const db = b.nextdate ? new Date(b.nextdate) : null;
+
+      // blank dates go to bottom
+      if (!da && !db) return 0;
+      if (!da) return 1;   // a goes to bottom
+      if (!db) return -1;  // b goes to bottom
+
+      // newest (future) dates first
+      return db - da;
+    });
+    // ---- END SORT ----
 
     const tbody = document.querySelector("#listContainer tbody");
     tbody.innerHTML = "";
 
-    rows.forEach(r=>{
-      // r: patientid, name, recordid, facility, type, startdate, stopdate, nextdate, note
+    rows.forEach(r => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${escapeHtml(r.patientid)}</td>
@@ -211,11 +225,11 @@ async function loadList(){
           <button class="small-btn warn" onclick="deletePatient(event,'${escapeJs(r.patientid)}')">削除</button>
         </td>
       `;
-      // clicking name loads history
-      tr.querySelector(".name-cell").addEventListener("click", ()=> showHistory(r.patientid));
+      tr.querySelector(".name-cell").addEventListener("click", () => showHistory(r.patientid));
       tbody.appendChild(tr);
     });
-  }catch(err){
+
+  } catch (err) {
     console.error(err);
     alert("一覧取得エラー: " + err.message);
   }
