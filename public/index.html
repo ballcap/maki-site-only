@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<title>注射管理ツール（完全版）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  body { font-family: "Hiragino Maru Gothic ProN","Yu Gothic",sans-serif; background:#f2f4f7; margin:0; padding:12px; }
+  h2 { text-align:center; margin:15px 0; }
+  input, select, button, textarea { width:100%; padding:10px; margin-top:5px; font-size:16px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; }
+  button { margin-top:10px; background:#4a90e2; color:white; font-weight:700; border:none; border-radius:10px; cursor:pointer; }
+  button.edit { background:#27ae60; }
+  .card { background:white; padding:15px; border-radius:14px; box-shadow:0 3px 8px rgba(0,0,0,0.1); margin-bottom:20px; }
+  .list-table { width:100%; border-collapse:collapse; }
+  .list-table th, .list-table td { border:1px solid #ccc; padding:8px; }
+  .list-table th { background:#e9ecef; }
+  .name-cell { color:#0d6efd; font-weight:700; cursor:pointer; text-decoration:underline; }
+  .patient-record { background:#fff; border-radius:14px; padding:12px 16px; box-shadow:0 4px 12px rgba(0,0,0,0.08); margin-bottom:12px; }
+  .small-btn { padding:6px 8px; font-size:13px; border-radius:8px; border:none; cursor:pointer; }
+  .small-btn.warn { background:#ffcccb; color:#800; }
+  .small-btn.gray { background:#e9ecef; color:#333; }
+</style>
+</head>
+<body>
+
+<h2>注射管理ツール（完全版）</h2>
+
+<div class="card">
+  <label>患者ID</label>
+  <input id="pid" placeholder="例: 12345">
+
+  <label>患者名</label>
+  <input id="pname" placeholder="氏名">
+
+  <label>施設名</label>
+  <select id="facility">
+    <option value="">なし</option>
+    <option value="くぬぎ">くぬぎ</option>
+    <option value="みさき">みさき</option>
+    <option value="たかねG">たかねG</option>
+    <option value="たかね特">たかね特</option>
+    <option value="つぼい">つぼい</option>
+  </select>
+
+  <label>注射種類</label>
+  <select id="injectionType">
+    <option value="プラリア">プラリア</option>
+    <option value="アクテムラ">アクテムラ</option>
+    <option value="エルカトニン">エルカトニン</option>
+  </select>
+
+  <label>投与日</label>
+  <input type="date" id="startdate">
+
+  <label>中止日（任意）</label>
+  <input type="date" id="stopdate">
+
+  <label>次回投与日（自動）</label>
+  <input type="text" id="nextdate" readonly>
+
+  <label>備考</label>
+  <textarea id="note" rows="3"></textarea>
+
+  <div style="display:flex; gap:8px;">
+    <button id="addBtn" style="flex:1" onclick="saveData()">追加</button>
+    <button id="saveEditBtn" class="edit" style="flex:1" onclick="saveEdit()" disabled>上書き</button>
+    <button onclick="resetForm()" style="flex:1; background:#777">クリア</button>
+  </div>
+</div>
+
+<h2>患者一覧</h2>
+<table class="list-table" id="listContainer">
+<thead>
+<tr>
+  <th>ID</th><th>名前</th><th>施設</th><th>注射</th><th>次回予定日</th><th>操作</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<h2 id="historyTitle" style="display:none;">履歴詳細</h2>
+<div id="history"></div>
+
+<script>
+/*
+  Frontend -> server expectations:
+  - POST /injection/add  body: { id, name, record: { facility,type,start,stop,next,note } }
+  - GET  /injection/all  returns rows with patientid, name, recordid, facility, type, startdate, stopdate, nextdate, note
+  - GET  /injection/history/:id returns array of records (same columns)
+  - PUT  /injection/update body: { recordid, record }
+  - DELETE /injection/patient/:id
+  - DELETE /injection/record/:recordid
+*/
+
+let editRecordId = null;
+
+// next date calc
+document.getElementById("startdate").addEventListener("change", calcNext);
+document.getElementById("injectionType").addEventListener("change", calcNext);
+document.getElementById("stopdate").addEventListener("change", calcNext);
+
+function calcNext(){
+  const start = document.getElementById("startdate").value;
+  const type = document.getElementById("injectionType").value;
+  const stop = document.getElementById("stopdate").value;
+  const out = document.getElementById("nextdate");
+  if(stop){ out.value = "中止"; return; }
+  if(!start){ out.value = ""; return; }
+  let d = new Date(start);
+  switch(type){
+    case "プラリア": d.setMonth(d.getMonth()+6); break;
+    case "アクテムラ": d.setDate(d.getDate()+14); break;
+    case "エルカトニン": d.setDate(d.getDate()+7); break;
+  }
+  out.value = d.toISOString().split("T")[0];
+}
+
+function getFormRecord(){
+  return {
+    facility: document.getElementById("facility").value || null,
+    type: document.getElementById("injectionType").value || null,
+    start: document.getElementById("startdate").value || null,
+    stop: document.getElementById("stopdate").value || null,
+    next: document.getElementById("nextdate").value || null,
+    note: document.getElementById("note").value || null
+  };
+}
+
+async function saveData(){
+  try{
+    calcNext();
+    const id = document.getElementById("pid").value.trim();
+    if(!id){ alert("患者IDを入力してください"); return; }
+    const name = document.getElementById("pname").value.trim();
+    const record = getFormRecord();
+
+    const body = { id, name, record };
+
+    const res = await fetch("/injection/add", {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify(body)
+    });
+    if(!res.ok) throw new Error(`保存に失敗しました (${res.status})`);
+    await loadList();
+    showHistory(id);
+    resetForm();
+  }catch(err){
+    console.error(err);
+    alert("保存エラー: " + err.message);
+  }
+}
+
+async function saveEdit(){
+  try{
+    if(!editRecordId){ alert("編集対象が選択されていません"); return; }
+    calcNext();
+    const record = getFormRecord();
+
+    const res = await fetch("/injection/update", {
+      method: "PUT",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify({ recordid: editRecordId, record })
+    });
+    if(!res.ok) throw new Error(`更新に失敗しました (${res.status})`);
+    // refresh
+    const pid = document.getElementById("pid").value.trim();
+    await loadList();
+    if(pid) showHistory(pid);
+    resetForm();
+  }catch(err){
+    console.error(err);
+    alert("更新エラー: " + err.message);
+  }
+}
+
+function resetForm(){
+  document.getElementById("pid").value = "";
+  document.getElementById("pname").value = "";
+  document.getElementById("facility").value = "";
+  document.getElementById("injectionType").value = "プラリア";
+  document.getElementById("startdate").value = "";
+  document.getElementById("stopdate").value = "";
+  document.getElementById("nextdate").value = "";
+  document.getElementById("note").value = "";
+  editRecordId = null;
+  document.getElementById("saveEditBtn").disabled = true;
+  document.getElementById("addBtn").disabled = false;
+}
+
+async function loadList(){
+  try{
+    const res = await fetch("/injection/all");
+    if(!res.ok) throw new Error(`一覧取得に失敗しました (${res.status})`);
+    const rows = await res.json();
+
+    const tbody = document.querySelector("#listContainer tbody");
+    tbody.innerHTML = "";
+
+    rows.forEach(r=>{
+      // r: patientid, name, recordid, facility, type, startdate, stopdate, nextdate, note
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHtml(r.patientid)}</td>
+        <td class="name-cell" style="white-space:nowrap">${escapeHtml(r.name || "")}</td>
+        <td>${escapeHtml(r.facility || "")}</td>
+        <td>${escapeHtml(r.type || "")}</td>
+        <td>${escapeHtml(formatDate(r.nextdate) || "-")}</td>
+        <td>
+          <button class="small-btn gray" onclick="showHistory('${escapeJs(r.patientid)}')">履歴</button>
+          <button class="small-btn warn" onclick="deletePatient(event,'${escapeJs(r.patientid)}')">削除</button>
+        </td>
+      `;
+      // clicking name loads history
+      tr.querySelector(".name-cell").addEventListener("click", ()=> showHistory(r.patientid));
+      tbody.appendChild(tr);
+    });
+  }catch(err){
+    console.error(err);
+    alert("一覧取得エラー: " + err.message);
+  }
+}
+
+function formatDate(d){
+  if(!d) return "";
+  // if d already a string date like "2025-12-10"
+  try{
+    const s = new Date(d).toISOString().split("T")[0];
+    return s;
+  }catch(e){
+    return d;
+  }
+}
+
+async function showHistory(id){
+  try{
+    const res = await fetch(`/injection/history/${encodeURIComponent(id)}`);
+    if(!res.ok) throw new Error(`履歴取得に失敗しました (${res.status})`);
+    const rows = await res.json();
+
+    const area = document.getElementById("history");
+    document.getElementById("historyTitle").style.display = "block";
+
+    if(!rows.length){
+      area.innerHTML = "<div>履歴はありません</div>";
+      return;
+    }
+
+    area.innerHTML = "";
+    rows.forEach(r=>{
+      const div = document.createElement("div");
+      div.className = "patient-record";
+      div.innerHTML = `
+        <div><b>施設:</b> ${escapeHtml(r.facility||"-")}</div>
+        <div><b>注射:</b> ${escapeHtml(r.type||"-")}</div>
+        <div><b>投与日:</b> ${escapeHtml(formatDate(r.startdate) || "-")}</div>
+        <div><b>中止日:</b> ${escapeHtml(formatDate(r.stopdate) || "-")}</div>
+        <div><b>次回:</b> ${escapeHtml(formatDate(r.nextdate) || "-")}</div>
+        <div><b>備考:</b> ${escapeHtml(r.note||"-")}</div>
+        <div style="margin-top:8px; display:flex; gap:8px;">
+          <button class="small-btn gray" onclick="loadForEdit(${r.recordid})">訂正</button>
+          <button class="small-btn warn" onclick="deleteRecord(${r.recordid}, '${escapeJs(id)}')">削除</button>
+        </div>
+      `;
+      area.appendChild(div);
+    });
+  }catch(err){
+    console.error(err);
+    alert("履歴取得エラー: " + err.message);
+  }
+}
+
+async function loadForEdit(recordid){
+  try{
+    // find record via history endpoint by scanning currently shown history (simpler: call history and find)
+    // We'll fetch history and locate record
+    const pid = document.getElementById("pid").value.trim();
+    // If pid not set, determine patientid by asking server for the record — but server has no direct record -> patient lookup endpoint.
+    // Simpler: get all patients list and find record by recordid via /injection/all or /injection/history for each. We'll call /injection/history for currently visible patient if any.
+    // Instead, call all patients' histories would be heavy — easier: assume user clicked 訂正 from shown history, so recordid exists in current history.
+    // We'll request all patients and search their histories (reasonable for moderate dataset).
+    // But straightforward implementation: call /injection/history for each patient until found — we can first get /injection/all to get patientids and check each history.
+    const resAll = await fetch("/injection/all");
+    if(!resAll.ok) throw new Error(`一覧取得に失敗しました (${resAll.status})`);
+    const rowsAll = await resAll.json();
+    let found = null;
+    for(const p of rowsAll){
+      const res = await fetch(`/injection/history/${encodeURIComponent(p.patientid)}`);
+      if(!res.ok) continue;
+      const hist = await res.json();
+      const rec = hist.find(r => Number(r.recordid) === Number(recordid));
+      if(rec){
+        found = { patientid: p.patientid, record: rec };
+        break;
+      }
+    }
+    if(!found) { alert("レコードが見つかりません"); return; }
+
+    // populate form
+    document.getElementById("pid").value = found.patientid;
+    document.getElementById("pname").value = found.record.name || "";
+    document.getElementById("facility").value = found.record.facility || "";
+    document.getElementById("injectionType").value = found.record.type || "プラリア";
+    document.getElementById("startdate").value = found.record.startdate ? formatDate(found.record.startdate) : "";
+    document.getElementById("stopdate").value = found.record.stopdate ? formatDate(found.record.stopdate) : "";
+    document.getElementById("note").value = found.record.note || "";
+    calcNext();
+    editRecordId = recordid;
+    document.getElementById("saveEditBtn").disabled = false;
+    document.getElementById("addBtn").disabled = true;
+  }catch(err){
+    console.error(err);
+    alert("読み込みエラー: " + err.message);
+  }
+}
+
+async function deletePatient(e,id){
+  try{
+    e.stopPropagation();
+    if(!confirm("本当にこの患者と全履歴を削除しますか？")) return;
+    const res = await fetch(`/injection/patient/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if(!res.ok) throw new Error(`削除に失敗しました (${res.status})`);
+    await loadList();
+    document.getElementById("history").innerHTML = "";
+  }catch(err){
+    console.error(err);
+    alert("削除エラー: " + err.message);
+  }
+}
+
+async function deleteRecord(recordid, patientid){
+  try{
+    if(!confirm("本当にこの履歴を削除しますか？")) return;
+    const res = await fetch(`/injection/record/${recordid}`, { method: "DELETE" });
+    if(!res.ok) throw new Error(`削除に失敗しました (${res.status})`);
+    await loadList();
+    if(patientid) showHistory(patientid);
+  }catch(err){
+    console.error(err);
+    alert("削除エラー: " + err.message);
+  }
+}
+
+// helper escaping
+function escapeHtml(s){ if(s==null) return ""; return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeJs(s){ return String(s).replace(/'/g,"\\'").replace(/"/g,'\\"'); }
+
+// initial load
+loadList();
+</script>
+
+</body>
+</html>
