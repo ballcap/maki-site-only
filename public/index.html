@@ -252,6 +252,21 @@ async function showHistory(id){
     if(!res.ok) throw new Error(`履歴取得に失敗しました (${res.status})`);
     const rows = await res.json();
 
+    // --- SORTING LOGIC (same as list) ---
+    rows.sort((a, b) => {
+      const da = a.nextdate ? new Date(a.nextdate) : null;
+      const db = b.nextdate ? new Date(b.nextdate) : null;
+
+      // empty → bottom
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
+
+      // oldest → newest
+      return da - db;
+    });
+    // -------------------------------------
+
     const area = document.getElementById("history");
     document.getElementById("historyTitle").style.display = "block";
 
@@ -265,9 +280,7 @@ async function showHistory(id){
       const div = document.createElement("div");
       div.className = "patient-record";
       div.innerHTML = `
-        <div style="font-size:18px; font-weight:700; margin-bottom:6px; color:#0d6efd;">
-          ${escapeHtml(r.name || "")}
-        </div>
+        <div><b>患者名:</b> ${escapeHtml(r.name || "-")}</div>
         <div><b>施設:</b> ${escapeHtml(r.facility||"-")}</div>
         <div><b>注射:</b> ${escapeHtml(r.type||"-")}</div>
         <div><b>投与日:</b> ${escapeHtml(formatDate(r.startdate) || "-")}</div>
