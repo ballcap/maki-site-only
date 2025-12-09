@@ -92,9 +92,17 @@ app.get("/injection/history/:id", async (req, res) => {
 // =========================
 // ADD new patient + record
 // =========================
-/*app.post("/injection/add", async (req, res) => {
+app.post("/injection/add", async (req, res) => {
   try{
     const { id, name, record } = req.body;
+
+    // Convert invalid Japanese string "中止" into NULL
+    const fixedNextDate =
+      nextdate === "中止" || nextdate === "" ? null : nextdate;
+
+    const fixedInjectionDate =
+      injectiondate === "中止" || injectiondate === "" ? null : injectiondate;
+    
     if(!id || !record) return res.status(400).json({ error: "invalid body" });
 
     await pool.query(
@@ -123,52 +131,6 @@ app.get("/injection/history/:id", async (req, res) => {
     res.json({ status: "ok" });
   }catch(err){
     handleError(res, err);
-  }
-});
-*/
-
-app.post('/injection/add', async (req, res) => {
-  try {
-    const {
-      patientname,
-      drugname,
-      dosage,
-      doctor,
-      injectiondate,
-      nextdate,
-      comment
-    } = req.body;
-
-    // Convert invalid Japanese string "中止" into NULL
-    const fixedNextDate =
-      nextdate === "中止" || nextdate === "" ? null : nextdate;
-
-    const fixedInjectionDate =
-      injectiondate === "中止" || injectiondate === "" ? null : injectiondate;
-
-    const sql = `
-      INSERT INTO injection
-      (patientname, drugname, dosage, doctor, injectiondate, nextdate, comment)
-      VALUES ($1,$2,$3,$4,$5,$6,$7)
-      RETURNING *;
-    `;
-
-    const params = [
-      patientname,
-      drugname,
-      dosage,
-      doctor,
-      fixedInjectionDate,
-      fixedNextDate,
-      comment
-    ];
-
-    const result = await pool.query(sql, params);
-
-    res.json({ success: true, data: result.rows[0] });
-  } catch (err) {
-    console.error("POST /injection/add error:", err);
-    res.status(500).json({ success: false, error: err.message });
   }
 });
 
