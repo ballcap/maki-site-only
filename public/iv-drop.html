@@ -1,271 +1,378 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>バルーン管理ツール（完全版）</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>点滴管理ツール（完全版）</title>
 <style>
-body { font-family: "Hiragino Maru Gothic ProN","Yu Gothic",sans-serif; background:#f2f4f7; margin:0; padding:12px; }
-h2 { text-align:center; margin:15px 0; }
-
-/* 基本パーツ */
-input, select, button, textarea {
-  width:100%; padding:10px; margin-top:5px;
-  font-size:16px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;
-}
-button { margin-top:10px; background:#4a90e2; color:white; font-weight:700; border:none; border-radius:10px; }
-button.edit { background:#27ae60; }
-button.danger { background:#e25b5b; }
-.card { background:white; padding:15px; border-radius:14px; box-shadow:0 3px 8px rgba(0,0,0,0.1); margin-bottom:20px; }
-
-.list-table { width:100%; border-collapse:collapse; }
-.list-table th, .list-table td { border:1px solid #ccc; padding:8px; }
-.list-table th { background:#e9ecef; }
-.name-cell { color:#0d6efd; font-weight:700; cursor:pointer; text-decoration:underline; }
-
-/* 詳細カード */
-.patient-record { background:#fff; border-radius:14px; padding:12px 16px; box-shadow:0 4px 12px rgba(0,0,0,0.08); margin-bottom:12px; }
-
-/* 警告色 */
-.warn-soon { background:#ffebc8 !important; }   /* 1週間以内 */
-.warn-danger { background:#ffb3b3 !important; } /* 期限切れ */
-
-.small-btn { padding:6px 8px; font-size:13px; border-radius:8px; border:none; cursor:pointer; }
-.small-btn.warn { background:#ffcccb; color:#800; }
-.small-btn.gray { background:#e9ecef; color:#333; }
+:root{--bg:#f2f4f7;--card:#fff;--primary:#4a90e2;--danger:#e25b5b}
+body{font-family:"Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;background:var(--bg);padding:12px;margin:0;color:#222}
+h2{text-align:center;font-size:20px;margin:12px 0}
+input,select,button,textarea{width:100%;padding:10px;margin-top:6px;border-radius:8px;border:1px solid #ccc;box-sizing:border-box;font-size:15px}
+button{background:var(--primary);color:#fff;border:0;font-weight:700;border-radius:10px;padding:10px}
+button.small{padding:6px 8px;font-size:13px;border-radius:8px}
+button.warn{background:#ffcccb;color:#800}
+.card{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.06);margin-bottom:18px}
+.drip-row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.drip-row label{flex:2;min-width:120px}
+.drip-row select,.drip-row input[type=text]{flex:1}
+.list-table{width:100%;border-collapse:collapse;margin-bottom:20px}
+.list-table th,.list-table td{border:1px solid #ccc;padding:8px;text-align:left;vertical-align:top}
+.list-table th{background:#e9ecef}
+.name-cell{color:#0d6efd;font-weight:700;cursor:pointer;text-decoration:underline}
+.patient-record{background:#fff;border-radius:12px;padding:12px;margin-bottom:12px;box-shadow:0 4px 12px rgba(0,0,0,0.06)}
+@media(max-width:480px){.drip-row{flex-direction:column;align-items:flex-start}.drip-row label{width:100%}.drip-row select,.drip-row input[type=text]{width:50%}}
+.small-muted{font-size:12px;color:#666}
 </style>
 </head>
 <body>
+<h2>点滴管理ツール（完全版）</h2>
 
-<h2>バルーン交換管理ツール（完全版）</h2>
-
-<!-- 入力画面 -->
 <div class="card">
   <label>患者ID</label>
-  <input id="pid">
-
-  <label>患者名</label>
-  <input id="pname">
+  <input id="pid" placeholder="例：001">
 
   <label>施設名</label>
   <select id="facility">
-    <option value="">なし</option>
-    <option value="くぬぎ">くぬぎ</option>
-    <option value="みさき">みさき</option>
-    <option value="たかねG">たかねG</option>
-    <option value="たかね特">たかね特</option>
-    <option value="つぼい">つぼい</option>
+    <option value="">なし</option><option>くぬぎ</option><option>みさき</option><option>たかねG</option><option>たかね特</option><option>つぼい</option>
   </select>
 
-  <label>バルーンサイズ</label>
-  <select id="balloonSize">
-    <option value="16Fr">16Fr</option>
-    <option value="18Fr">18Fr</option>
-    <option value="20Fr">20Fr</option>
-  </select>
+  <label>患者名（フルネーム）</label>
+  <input id="pname" placeholder="例：山田 花子">
 
-  <label>交換間隔</label>
-  <select id="intervalWeeks">
-    <option value="2">2週間ごと</option>
-    <option value="4">4週間ごと</option>
-  </select>
+  <h3 style="margin-top:12px">点滴内容（個数0〜3）</h3>
+  <div id="dripContainer">
+    <div class="drip-row"><label>ペントシリン1g</label><select class="drip-num"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+    <div class="drip-row"><label>ペントシリン2g</label><select class="drip-num"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+    <div class="drip-row"><label>メロペネム0.5mg</label><select class="drip-num"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+    <div class="drip-row"><label>生食100ml</label><select class="drip-num"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+    <div class="drip-row"><label>生食20ml</label><select class="drip-num"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+    <div class="drip-row"><label>ファモチジン</label><select class="drip-num"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+    <div class="drip-row"><label>ネオラミン3B</label><select class="drip-num"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+    <div class="drip-row"><label>ヴィーンD</label><select class="drip-num"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+    <div class="drip-row"><label>ソルデム3A</label><select class="drip-num"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+    <div class="drip-row"><label>その他（自由入力）</label><input type="text" id="otherText" placeholder="自由入力"><select id="otherNum"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+  </div>
 
-  <label>交換日</label>
-  <input type="date" id="startdate">
+  <label>1日回数</label><input type="number" id="timesPerDay" min="1" value="1">
+  <label>日数</label><input type="number" id="days" min="1" value="1">
+  <label>開始日</label><input type="date" id="startdate">
+  <label>終了日（自動計算）</label><input type="date" id="enddate" readonly>
+  <label>投与方法</label>
+  <select id="adminMethod"><option>施設にて</option><option>クリニックにて</option></select>
+  <label>持ち帰り日数（自由入力）</label><input type="number" id="homeDays" min="0" value="0">
 
-  <label>次回交換日（自動）</label>
-  <input type="date" id="nextdate" readonly>
+  <h3 style="margin-top:12px">検査</h3>
+  <div class="drip-row"><label>CRP</label><input type="number" id="crp" placeholder="0.00"></div>
 
-  <label>備考</label>
-  <textarea id="note"></textarea>
+  <h4>尿検査</h4>
+  <div class="drip-row"><label>蛋白</label><select id="urineProtein"><option>-</option><option>±</option><option>＋1</option><option>＋2</option><option>＋3</option></select><label>糖</label><select id="urineSugar"><option>-</option><option>±</option><option>＋1</option><option>＋2</option><option>＋3</option></select></div>
+  <div class="drip-row"><label>潜血</label><select id="urineBlood"><option>-</option><option>±</option><option>＋1</option><option>＋2</option><option>＋3</option></select><label>白血球</label><select id="urineWBC"><option>-</option><option>±</option><option>＋1</option><option>＋2</option><option>＋3</option></select></div>
+  <div class="drip-row"><label>亜硝酸塩</label><select id="urineNitrite"><option>-</option><option>±</option><option>＋1</option><option>＋2</option><option>＋3</option></select><label>ケトン体</label><select id="urineKetone"><option>-</option><option>±</option><option>＋1</option><option>＋2</option><option>＋3</option></select></div>
 
-  <button onclick="saveData()">追加</button>
-  <button class="edit" onclick="saveEdit()">上書き</button>
-  <button onclick="resetForm()">クリア</button>
+  <label>備考（検査欄）</label>
+  <textarea id="note" placeholder="備考を入力"></textarea>
+
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+    <button onclick="onSave()" id="saveBtn">追加</button>
+    <button onclick="onOverwrite()" id="overwriteBtn">上書き</button>
+    <button class="small warn" onclick="onDeleteFromForm()">削除</button>
+    <button class="small" onclick="resetForNextPatient()">リセット</button>
+    <div class="small-muted" style="margin-left:auto">編集中の履歴: <span id="editingInfo">なし</span></div>
+  </div>
 </div>
 
 <h2>患者一覧</h2>
 <table class="list-table" id="listContainer">
-<thead>
-<tr>
-  <th>ID</th><th>名前</th><th>施設</th><th>サイズ</th><th>次回交換日</th><th>操作</th>
-</tr>
-</thead>
+<thead><tr><th>ID</th><th>名前</th><th>施設</th><th>点滴内容</th><th>期間</th><th>操作</th></tr></thead>
 <tbody></tbody>
 </table>
 
-<h2 id="historyTitle" style="display:none;">履歴詳細</h2>
-<div id="history"></div>
+<h2 id="patientHistoryTitle" style="display:none">選択患者の履歴</h2>
+<div id="patientHistory"></div>
 
 <script>
-let patients = {}; // filled by server
+/* ---------- データ保存形式 ----------
+patients = {
+  "<id>": { name: "...", records: [ { facility, drips: [{label,num},...all items...], timesPerDay, days, start, end, adminMethod, homeDays, crp, urineProtein,..., note }, ... ] }
+}
+-------------------------------------- */
 
-/* 次回交換日を自動計算 */
-document.getElementById("startdate").addEventListener("change", calcNext);
-document.getElementById("intervalWeeks").addEventListener("change", calcNext);
+let patients = JSON.parse(localStorage.getItem("dripPatients")||"{}");
+let editing = null; // { id, idx } または null
 
-function calcNext(){
+// ----- ユーティリティ -----
+function computeEndDate(start, days){
+  if(!start || !days) return "";
+  const d = new Date(start);
+  d.setDate(d.getDate() + days - 1);
+  return d.toISOString().split("T")[0];
+}
+function updateEndDate(){ // フォームに反映して返す
   const start = document.getElementById("startdate").value;
-  const w = parseInt(document.getElementById("intervalWeeks").value);
+  const days = parseInt(document.getElementById("days").value||0);
+  const end = computeEndDate(start, days);
+  document.getElementById("enddate").value = end;
+  return end;
+}
+document.getElementById("startdate").addEventListener("change", updateEndDate);
+document.getElementById("days").addEventListener("input", updateEndDate);
 
-  if(!start) { document.getElementById("nextdate").value = ""; return; }
-
-  let d = new Date(start);
-  d.setDate(d.getDate() + (7 * w));
-  document.getElementById("nextdate").value = d.toISOString().split("T")[0];
+// ----- ドリップ取得 -----
+// ① record 用（全アイテム：0含む） — 詳細で完全に再表示するため
+function collectAllDrips(){
+  const arr = [];
+  document.querySelectorAll("#dripContainer .drip-row").forEach(row=>{
+    const label = row.querySelector("label").textContent.trim();
+    const sel = row.querySelector("select");
+    const num = sel? parseInt(sel.value||0) : 0;
+    const otherInput = row.querySelector('input[type="text"]');
+    const actualLabel = label.includes("その他") ? (otherInput.value.trim()||"その他") : label;
+    arr.push({label: actualLabel, num});
+  });
+  return arr;
+}
+// ② 一覧用要約（個数1以上だけ）
+function dripSummaryForList(drips){
+  if(!drips || drips.length===0) return "なし";
+  const filtered = drips.filter(d=>d.num>=1).map(d=>`${d.label}×${d.num}`);
+  return filtered.length? filtered.join(", ") : "なし";
 }
 
-/* データ保存（追加） */
-function saveData(){
-  const id = document.getElementById("pid").value.trim();
-  if(!id){ alert("患者IDを入力してください"); return; }
-
-  if(!patients[id]) patients[id] = { name:"", records:[] };
-
-  patients[id].name = document.getElementById("pname").value.trim();
-
-  patients[id].records.push(getRecordData());
-
-  localStorage.setItem("balloonPatients", JSON.stringify(patients));
-  updateList();
-  showHistory(id);
-}
-
-/* 最新履歴を上書き */
-function saveEdit(){
-  const id = document.getElementById("pid").value.trim();
-  if(!id || !patients[id] || patients[id].records.length === 0){
-    alert("上書きできません（IDなし or 履歴なし）");
-    return;
-  }
-  patients[id].name = document.getElementById("pname").value.trim();
-  patients[id].records[patients[id].records.length - 1] = getRecordData();
-
-  localStorage.setItem("balloonPatients", JSON.stringify(patients));
-  updateList();
-  showHistory(id);
-}
-
-/* 1件分のデータ取得 */
-function getRecordData(){
+// ----- レコード収集 -----
+function collectRecord(end){
   return {
     facility: document.getElementById("facility").value,
-    balloonSize: document.getElementById("balloonSize").value,
-    intervalWeeks: document.getElementById("intervalWeeks").value,
+    drips: collectAllDrips(),
+    timesPerDay: parseInt(document.getElementById("timesPerDay").value||1),
+    days: parseInt(document.getElementById("days").value||1),
     start: document.getElementById("startdate").value,
-    nextExchange: document.getElementById("nextdate").value,
+    end: end,
+    adminMethod: document.getElementById("adminMethod").value,
+    homeDays: parseInt(document.getElementById("homeDays").value||0),
+    crp: document.getElementById("crp").value,
+    urineProtein: document.getElementById("urineProtein").value,
+    urineSugar: document.getElementById("urineSugar").value,
+    urineBlood: document.getElementById("urineBlood").value,
+    urineWBC: document.getElementById("urineWBC").value,
+    urineNitrite: document.getElementById("urineNitrite").value,
+    urineKetone: document.getElementById("urineKetone").value,
     note: document.getElementById("note").value
   };
 }
 
-/* フォームリセット */
-function resetForm(){
-  document.getElementById("pid").value = "";
-  document.getElementById("pname").value = "";
-  document.getElementById("facility").value = "";
-  document.getElementById("balloonSize").value = "16Fr";
-  document.getElementById("intervalWeeks").value = "2";
-  document.getElementById("startdate").value = "";
-  document.getElementById("nextdate").value = "";
-  document.getElementById("note").value = "";
+// ----- 保存 / 上書き（ボタン） -----
+// ボタンから直接呼ぶラッパー（編集モード対応）
+function onSave(){
+  // 編集中なら、その履歴を更新（訂正）して終了。編集フラグをクリア。
+  if(editing){ saveEditedRecord(); return; }
+  addPatient();
+}
+function onOverwrite(){ overwritePatient(); }
+
+// add: 新規レコード追加（editing がない時）
+function addPatient(){
+  const id = document.getElementById("pid").value.trim();
+  if(!id){ alert("IDを入力してください"); return; }
+  if(!patients[id]) patients[id] = { name: document.getElementById("pname").value.trim(), records: []};
+  const start = document.getElementById("startdate").value;
+  const days = parseInt(document.getElementById("days").value||0);
+  const end = computeEndDate(start, days);
+  // フォームの enddate をも更新して見た目でも反映
+  document.getElementById("enddate").value = end;
+  const rec = collectRecord(end);
+  patients[id].records.push(rec);
+  localStorage.setItem("dripPatients", JSON.stringify(patients));
+  updateList();
+  resetForNextPatient();
 }
 
-/* 一覧更新（警告色つき） */
+// overwrite: 最新履歴を上書き（従来動作を保持）
+function overwritePatient(){
+  const id = document.getElementById("pid").value.trim();
+  if(!id || !patients[id] || patients[id].records.length===0){ alert("上書きする履歴がありません"); return; }
+  const start = document.getElementById("startdate").value;
+  const days = parseInt(document.getElementById("days").value||0);
+  const end = computeEndDate(start, days);
+  document.getElementById("enddate").value = end;
+  const rec = collectRecord(end);
+  patients[id].records[patients[id].records.length-1] = rec;
+  localStorage.setItem("dripPatients", JSON.stringify(patients));
+  updateList();
+  resetForNextPatient();
+}
+
+// 編集モードで特定履歴を訂正 → 編集用フォームに読み込み（一覧の「訂正」ボタンから）
+function editRecord(id, idx){
+  const rec = patients[id].records[idx];
+  if(!rec) return;
+  // load into form
+  document.getElementById("pid").value = id;
+  document.getElementById("pname").value = patients[id].name || "";
+  document.getElementById("facility").value = rec.facility || "";
+  // load drips into inputs (match by order in DOM)
+  const rows = document.querySelectorAll("#dripContainer .drip-row");
+  rec.drips.forEach((d,i)=>{
+    const sel = rows[i].querySelector("select");
+    const txt = rows[i].querySelector('input[type="text"]');
+    if(sel) sel.value = d.num;
+    if(txt && rows[i].querySelector("label").textContent.includes("その他")) txt.value = d.label==="その他"? "": d.label;
+  });
+  document.getElementById("timesPerDay").value = rec.timesPerDay || 1;
+  document.getElementById("days").value = rec.days || 1;
+  document.getElementById("startdate").value = rec.start || "";
+  document.getElementById("enddate").value = rec.end || "";
+  document.getElementById("adminMethod").value = rec.adminMethod || "施設にて";
+  document.getElementById("homeDays").value = rec.homeDays || 0;
+  document.getElementById("crp").value = rec.crp || "";
+  document.getElementById("urineProtein").value = rec.urineProtein || "-";
+  document.getElementById("urineSugar").value = rec.urineSugar || "-";
+  document.getElementById("urineBlood").value = rec.urineBlood || "-";
+  document.getElementById("urineWBC").value = rec.urineWBC || "-";
+  document.getElementById("urineNitrite").value = rec.urineNitrite || "-";
+  document.getElementById("urineKetone").value = rec.urineKetone || "-";
+  document.getElementById("note").value = rec.note || "";
+  // set editing flag
+  editing = { id, idx };
+  document.getElementById("editingInfo").textContent = `${id} の履歴 #${idx+1}`;
+  // change save button text to "訂正保存"
+  document.getElementById("saveBtn").textContent = "訂正保存";
+}
+
+// 編集モード保存（指定の履歴を置き換える）
+function saveEditedRecord(){
+  if(!editing) return;
+  const { id, idx } = editing;
+  const start = document.getElementById("startdate").value;
+  const days = parseInt(document.getElementById("days").value||0);
+  const end = computeEndDate(start, days);
+  document.getElementById("enddate").value = end;
+  const rec = collectRecord(end);
+  patients[id].records[idx] = rec;
+  localStorage.setItem("dripPatients", JSON.stringify(patients));
+  editing = null;
+  document.getElementById("editingInfo").textContent = "なし";
+  document.getElementById("saveBtn").textContent = "追加";
+  updateList();
+  resetForNextPatient();
+}
+
+// ----- 削除操作 -----
+// フォームから患者丸ごと削除
+function onDeleteFromForm(){
+  const id = document.getElementById("pid").value.trim();
+  if(!id || !patients[id]) return;
+  if(!confirm("患者を削除しますか？")) return;
+  delete patients[id];
+  localStorage.setItem("dripPatients", JSON.stringify(patients));
+  updateList();
+  resetForNextPatient();
+}
+// 一覧の削除（行ボタン）
+function deletePatientFromList(e,id){
+  e.stopPropagation();
+  if(!confirm("患者を削除しますか？")) return;
+  delete patients[id];
+  localStorage.setItem("dripPatients", JSON.stringify(patients));
+  updateList();
+}
+// 履歴個別削除（詳細内ボタン）
+function deleteRecord(id, idx){
+  if(!confirm("この履歴を削除しますか？")) return;
+  if(!patients[id] || !patients[id].records) return;
+  patients[id].records.splice(idx,1);
+  if(patients[id].records.length===0) delete patients[id];
+  localStorage.setItem("dripPatients", JSON.stringify(patients));
+  updateList();
+  showHistory(id);
+}
+
+// ----- 一覧更新（個数1以上の点滴のみ表示、異常のみ備考表示） -----
 function updateList(){
   const tbody = document.querySelector("#listContainer tbody");
   tbody.innerHTML = "";
-  const today = new Date();
-
-  for(let id in patients){
-    let p = patients[id];
-    if(!p.records.length) continue;
-
-    let last = p.records[p.records.length - 1];
-    let next = last.nextExchange;
-
-    let warn = "";
-    if(next){
-      let nd = new Date(next);
-      let diff = (nd - today) / (1000 * 60 * 60 * 24);
-      if(diff < 0) warn = "warn-danger";
-      else if(diff <= 7) warn = "warn-soon";
-    }
-
-    let tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${id}</td>
-      <td class="name-cell" onclick="showHistory('${id}')">${p.name}</td>
-      <td>${last.facility}</td>
-      <td>${last.balloonSize}</td>
-      <td class="${warn}">${next || "-"}</td>
-      <td><button class="small-btn warn" onclick="deletePatient(event,'${id}')">削除</button></td>
-    `;
+  for(const id in patients){
+    const p = patients[id];
+    if(!p.records || p.records.length===0) continue;
+    const last = p.records[p.records.length-1];
+    const dripSummary = dripSummaryForList(last.drips);
+    // 異常チェック（一覧用）
+    const abnormal = [];
+    if(last.crp && parseFloat(last.crp) > 0) abnormal.push(`CRP:${last.crp}`);
+    ["urineProtein","urineSugar","urineBlood","urineWBC","urineNitrite","urineKetone"].forEach(k=>{
+      if(last[k] && last[k] !== "-" && last[k] !== "0") abnormal.push(`${k}:${last[k]}`);
+    });
+    if(last.note && last.note.trim() !== "") abnormal.push(`備考:${last.note}`);
+    const abnormalHtml = abnormal.length ? `<br><small style="color:red">${abnormal.join(", ")}</small>` : "";
+    const period = (last.start||"-") + "〜" + (last.end||"-");
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${id}</td>
+      <td class="name-cell" onclick="showHistory('${id}')">${escapeHtml(p.name||"-")}</td>
+      <td>${escapeHtml(last.facility||"-")}</td>
+      <td>${escapeHtml(dripSummary)}${abnormalHtml}</td>
+      <td>${escapeHtml(period)}</td>
+      <td><button class="small warn" onclick="deletePatientFromList(event,'${id}')">削除</button></td>`;
     tbody.appendChild(tr);
   }
 }
 
-/* 履歴表示＋削除・訂正ボタン */
+// ----- 詳細表示 -----
 function showHistory(id){
-  const area = document.getElementById("history");
-  const title = document.getElementById("historyTitle");
-  area.innerHTML = "";
+  const histDiv = document.getElementById("patientHistory");
+  const title = document.getElementById("patientHistoryTitle");
+  histDiv.innerHTML = "";
+  const p = patients[id];
+  if(!p || !p.records) return;
   title.style.display = "block";
-
-  let p = patients[id];
-
   p.records.forEach((r,i)=>{
-    let div = document.createElement("div");
+    const div = document.createElement("div");
     div.className = "patient-record";
-
-    div.innerHTML = `
-      <div><b>施設:</b> ${r.facility}</div>
-      <div><b>サイズ:</b> ${r.balloonSize}</div>
-      <div><b>交換日:</b> ${r.start}</div>
-      <div><b>次回:</b> ${r.nextExchange}</div>
-      <div><b>間隔:</b> ${r.intervalWeeks}週間</div>
-      <div><b>備考:</b> ${r.note}</div>
-
-      <button class="small-btn gray" onclick="loadForEdit('${id}',${i})">訂正</button>
-      <button class="small-btn warn" onclick="deleteRecord('${id}',${i})">削除</button>
-    `;
-    area.appendChild(div);
+    const dripText = (r.drips||[]).map(d=>`${d.label}×${d.num}`).join(", ") || "なし";
+    div.innerHTML = `<div><b>施設:</b> ${escapeHtml(r.facility||"-")}</div>
+      <div><b>点滴内容:</b> ${escapeHtml(dripText)}</div>
+      <div><b>開始:</b> ${escapeHtml(r.start||"-")} <b>終了:</b> ${escapeHtml(r.end||"-")}</div>
+      <div><b>1日回数:</b> ${escapeHtml(r.timesPerDay||"-")} <b>日数:</b> ${escapeHtml(r.days||"-")} <b>持ち帰り日数:</b> ${escapeHtml(r.homeDays||"-")}</div>
+      <div><b>投与方法:</b> ${escapeHtml(r.adminMethod||"-")}</div>
+      <div><b>CRP:</b> ${escapeHtml(r.crp||"-")}</div>
+      <div><b>尿検査:</b> 蛋白:${escapeHtml(r.urineProtein||"-")} 糖:${escapeHtml(r.urineSugar||"-")} 潜血:${escapeHtml(r.urineBlood||"-")} WBC:${escapeHtml(r.urineWBC||"-")} 亜硝酸塩:${escapeHtml(r.urineNitrite||"-")} ケトン:${escapeHtml(r.urineKetone||"-")}</div>
+      <div><b>備考:</b> ${escapeHtml(r.note||"-")}</div>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button class="small" onclick="editRecord('${id}',${i})">訂正</button>
+        <button class="small warn" onclick="deleteRecord('${id}',${i})">この履歴を削除</button>
+      </div>`;
+    histDiv.appendChild(div);
   });
 }
 
-/* 詳細から読み込みして訂正モードへ */
-function loadForEdit(id, index){
-  const r = patients[id].records[index];
-
-  document.getElementById("pid").value = id;
-  document.getElementById("pname").value = patients[id].name;
-  document.getElementById("facility").value = r.facility;
-  document.getElementById("balloonSize").value = r.balloonSize;
-  document.getElementById("intervalWeeks").value = r.intervalWeeks;
-  document.getElementById("startdate").value = r.start;
-  document.getElementById("nextdate").value = r.nextExchange;
-  document.getElementById("note").value = r.note;
+// ----- フォームリセット -----
+function resetForNextPatient(){
+  editing = null;
+  document.getElementById("editingInfo").textContent = "なし";
+  document.getElementById("saveBtn").textContent = "追加";
+  document.getElementById("pid").value = "";
+  document.getElementById("pname").value = "";
+  document.getElementById("facility").value = "";
+  document.querySelectorAll("#dripContainer .drip-num").forEach(s=>s.value="0");
+  document.getElementById("otherText").value = "";
+  document.getElementById("otherNum").value = "0";
+  document.getElementById("timesPerDay").value = 1;
+  document.getElementById("days").value = 1;
+  document.getElementById("startdate").value = "";
+  document.getElementById("enddate").value = "";
+  document.getElementById("adminMethod").value = "施設にて";
+  document.getElementById("homeDays").value = 0;
+  document.getElementById("crp").value = "";
+  ["urineProtein","urineSugar","urineBlood","urineWBC","urineNitrite","urineKetone"].forEach(id=>document.getElementById(id).value = "-");
+  document.getElementById("note").value = "";
+  document.getElementById("patientHistory").innerHTML = "";
+  document.getElementById("patientHistoryTitle").style.display = "none";
 }
 
-/* 患者削除 */
-function deletePatient(e,id){
-  e.stopPropagation();
-  delete patients[id];
-  localStorage.setItem("balloonPatients", JSON.stringify(patients));
-  updateList();
-  document.getElementById("history").innerHTML = "";
-}
+// ----- HTML エスケープ -----
+function escapeHtml(s){ return String(s||"").replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 
-/* 履歴削除 */
-function deleteRecord(id, index){
-  patients[id].records.splice(index,1);
-  localStorage.setItem("balloonPatients", JSON.stringify(patients));
-  showHistory(id);
-  updateList();
-}
-
+// 初期表示
 updateList();
 </script>
-
 </body>
 </html>
