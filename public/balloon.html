@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>バルーン管理ツール（完全版）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body { font-family: "Hiragino Maru Gothic ProN","Yu Gothic",sans-serif; background:#f2f4f7; margin:0; padding:12px; }
+h2 { text-align:center; margin:15px 0; }
+
+/* 基本パーツ */
+input, select, button, textarea {
+  width:100%; padding:10px; margin-top:5px;
+  font-size:16px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;
+}
+button { margin-top:10px; background:#4a90e2; color:white; font-weight:700; border:none; border-radius:10px; }
+button.edit { background:#27ae60; }
+button.danger { background:#e25b5b; }
+.card { background:white; padding:15px; border-radius:14px; box-shadow:0 3px 8px rgba(0,0,0,0.1); margin-bottom:20px; }
+
+.list-table { width:100%; border-collapse:collapse; }
+.list-table th, .list-table td { border:1px solid #ccc; padding:8px; }
+.list-table th { background:#e9ecef; }
+.name-cell { color:#0d6efd; font-weight:700; cursor:pointer; text-decoration:underline; }
+
+/* 詳細カード */
+.patient-record { background:#fff; border-radius:14px; padding:12px 16px; box-shadow:0 4px 12px rgba(0,0,0,0.08); margin-bottom:12px; }
+
+/* 警告色 */
+.warn-soon { background:#ffebc8 !important; }   /* 1週間以内 */
+.warn-danger { background:#ffb3b3 !important; } /* 期限切れ */
+
+.small-btn { padding:6px 8px; font-size:13px; border-radius:8px; border:none; cursor:pointer; }
+.small-btn.warn { background:#ffcccb; color:#800; }
+.small-btn.gray { background:#e9ecef; color:#333; }
+</style>
+</head>
+<body>
+
+<h2>バルーン交換管理ツール（完全版）</h2>
+
+<!-- 入力画面 -->
+<div class="card">
+  <label>患者ID</label>
+  <input id="pid">
+
+  <label>患者名</label>
+  <input id="pname">
+
+  <label>施設名</label>
+  <select id="facility">
+    <option value="">なし</option>
+    <option value="くぬぎ">くぬぎ</option>
+    <option value="みさき">みさき</option>
+    <option value="たかねG">たかねG</option>
+    <option value="たかね特">たかね特</option>
+    <option value="つぼい">つぼい</option>
+  </select>
+
+  <label>バルーンサイズ</label>
+  <select id="balloonSize">
+    <option value="16Fr">16Fr</option>
+    <option value="18Fr">18Fr</option>
+    <option value="20Fr">20Fr</option>
+  </select>
+
+  <label>交換間隔</label>
+  <select id="intervalWeeks">
+    <option value="2">2週間ごと</option>
+    <option value="4">4週間ごと</option>
+  </select>
+
+  <label>交換日</label>
+  <input type="date" id="startdate">
+
+  <label>次回交換日（自動）</label>
+  <input type="date" id="nextdate" readonly>
+
+  <label>備考</label>
+  <textarea id="note"></textarea>
+
+  <button onclick="saveData()">追加</button>
+  <button class="edit" onclick="saveEdit()">上書き</button>
+  <button onclick="resetForm()">クリア</button>
+</div>
+
+<h2>患者一覧</h2>
+<table class="list-table" id="listContainer">
+<thead>
+<tr>
+  <th>ID</th><th>名前</th><th>施設</th><th>サイズ</th><th>次回交換日</th><th>操作</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<h2 id="historyTitle" style="display:none;">履歴詳細</h2>
+<div id="history"></div>
+
+<script>
+let patients = {}; // filled by server
+
+/* 次回交換日を自動計算 */
+document.getElementById("startdate").addEventListener("change", calcNext);
+document.getElementById("intervalWeeks").addEventListener("change", calcNext);
+
+function calcNext(){
+  const start = document.getElementById("startdate").value;
+  const w = parseInt(document.getElementById("intervalWeeks").value);
+
+  if(!start) { document.getElementById("nextdate").value = ""; return; }
+
+  let d = new Date(start);
+  d.setDate(d.getDate() + (7 * w));
+  document.getElementById("nextdate").value = d.toISOString().split("T")[0];
+}
+
+/* データ保存（追加） */
+function saveData(){
+  const id = document.getElementById("pid").value.trim();
+  if(!id){ alert("患者IDを入力してください"); return; }
+
+  if(!patients[id]) patients[id] = { name:"", records:[] };
+
+  patients[id].name = document.getElementById("pname").value.trim();
+
+  patients[id].records.push(getRecordData());
+
+  localStorage.setItem("balloonPatients", JSON.stringify(patients));
+  updateList();
+  showHistory(id);
+}
+
+/* 最新履歴を上書き */
+function saveEdit(){
+  const id = document.getElementById("pid").value.trim();
+  if(!id || !patients[id] || patients[id].records.length === 0){
+    alert("上書きできません（IDなし or 履歴なし）");
+    return;
+  }
+  patients[id].name = document.getElementById("pname").value.trim();
+  patients[id].records[patients[id].records.length - 1] = getRecordData();
+
+  localStorage.setItem("balloonPatients", JSON.stringify(patients));
+  updateList();
+  showHistory(id);
+}
+
+/* 1件分のデータ取得 */
+function getRecordData(){
+  return {
+    facility: document.getElementById("facility").value,
+    balloonSize: document.getElementById("balloonSize").value,
+    intervalWeeks: document.getElementById("intervalWeeks").value,
+    start: document.getElementById("startdate").value,
+    nextExchange: document.getElementById("nextdate").value,
+    note: document.getElementById("note").value
+  };
+}
+
+/* フォームリセット */
+function resetForm(){
+  document.getElementById("pid").value = "";
+  document.getElementById("pname").value = "";
+  document.getElementById("facility").value = "";
+  document.getElementById("balloonSize").value = "16Fr";
+  document.getElementById("intervalWeeks").value = "2";
+  document.getElementById("startdate").value = "";
+  document.getElementById("nextdate").value = "";
+  document.getElementById("note").value = "";
+}
+
+/* 一覧更新（警告色つき） */
+function updateList(){
+  const tbody = document.querySelector("#listContainer tbody");
+  tbody.innerHTML = "";
+  const today = new Date();
+
+  for(let id in patients){
+    let p = patients[id];
+    if(!p.records.length) continue;
+
+    let last = p.records[p.records.length - 1];
+    let next = last.nextExchange;
+
+    let warn = "";
+    if(next){
+      let nd = new Date(next);
+      let diff = (nd - today) / (1000 * 60 * 60 * 24);
+      if(diff < 0) warn = "warn-danger";
+      else if(diff <= 7) warn = "warn-soon";
+    }
+
+    let tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${id}</td>
+      <td class="name-cell" onclick="showHistory('${id}')">${p.name}</td>
+      <td>${last.facility}</td>
+      <td>${last.balloonSize}</td>
+      <td class="${warn}">${next || "-"}</td>
+      <td><button class="small-btn warn" onclick="deletePatient(event,'${id}')">削除</button></td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+/* 履歴表示＋削除・訂正ボタン */
+function showHistory(id){
+  const area = document.getElementById("history");
+  const title = document.getElementById("historyTitle");
+  area.innerHTML = "";
+  title.style.display = "block";
+
+  let p = patients[id];
+
+  p.records.forEach((r,i)=>{
+    let div = document.createElement("div");
+    div.className = "patient-record";
+
+    div.innerHTML = `
+      <div><b>施設:</b> ${r.facility}</div>
+      <div><b>サイズ:</b> ${r.balloonSize}</div>
+      <div><b>交換日:</b> ${r.start}</div>
+      <div><b>次回:</b> ${r.nextExchange}</div>
+      <div><b>間隔:</b> ${r.intervalWeeks}週間</div>
+      <div><b>備考:</b> ${r.note}</div>
+
+      <button class="small-btn gray" onclick="loadForEdit('${id}',${i})">訂正</button>
+      <button class="small-btn warn" onclick="deleteRecord('${id}',${i})">削除</button>
+    `;
+    area.appendChild(div);
+  });
+}
+
+/* 詳細から読み込みして訂正モードへ */
+function loadForEdit(id, index){
+  const r = patients[id].records[index];
+
+  document.getElementById("pid").value = id;
+  document.getElementById("pname").value = patients[id].name;
+  document.getElementById("facility").value = r.facility;
+  document.getElementById("balloonSize").value = r.balloonSize;
+  document.getElementById("intervalWeeks").value = r.intervalWeeks;
+  document.getElementById("startdate").value = r.start;
+  document.getElementById("nextdate").value = r.nextExchange;
+  document.getElementById("note").value = r.note;
+}
+
+/* 患者削除 */
+function deletePatient(e,id){
+  e.stopPropagation();
+  delete patients[id];
+  localStorage.setItem("balloonPatients", JSON.stringify(patients));
+  updateList();
+  document.getElementById("history").innerHTML = "";
+}
+
+/* 履歴削除 */
+function deleteRecord(id, index){
+  patients[id].records.splice(index,1);
+  localStorage.setItem("balloonPatients", JSON.stringify(patients));
+  showHistory(id);
+  updateList();
+}
+
+updateList();
+</script>
+
+</body>
+</html>
