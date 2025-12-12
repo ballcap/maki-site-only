@@ -27,6 +27,11 @@ function handleError(res, err){
   res.status(500).json({ error: err.message || String(err) });
 }
 
+//endpoints
+app.get('/iv-drop', (req, res) => {
+  res.render('iv-drop');
+});
+
 // =========================
 // GET latest record for all patients
 // =========================
