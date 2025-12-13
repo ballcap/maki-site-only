@@ -32,6 +32,10 @@ app.get('/iv-drop', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'iv-drop.html'));
 });
 
+app.get('/balloon', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'balloon.html'));
+});
+
 // =========================
 // GET latest record for all patients
 // =========================
