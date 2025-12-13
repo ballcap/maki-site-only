@@ -129,19 +129,47 @@ app.post("/injection/add", async (req, res) => {
 
     // Insert new injection record
     await pool.query(
-      `INSERT INTO injection_records
-        (patientid, facility, type, startdate, stopdate, nextdate, note)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [
-        id,
-        record.facility || null,
-        record.type || null,
-        fixedStart,
-        fixedStop,
-        fixedNext,
-        record.note || null
-      ]
-    );
+  `INSERT INTO injection_records (
+     patientid,
+     facility,
+     drips,
+     times_per_day,
+     days,
+     startdate,
+     enddate,
+     admin_method,
+     home_days,
+     crp,
+     urine_protein,
+     urine_sugar,
+     urine_blood,
+     urine_wbc,
+     urine_nitrite,
+     urine_ketone,
+     note
+   ) VALUES (
+     $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17
+   )`,
+  [
+    id,
+    record.facility || null,
+    JSON.stringify(record.drips),
+    record.timesPerDay,
+    record.days,
+    record.start || null,
+    record.end || null,
+    record.adminMethod,
+    record.homeDays,
+    record.crp || null,
+    record.urineProtein,
+    record.urineSugar,
+    record.urineBlood,
+    record.urineWBC,
+    record.urineNitrite,
+    record.urineKetone,
+    record.note || null
+  ]
+);
 
     res.json({ status: "ok" });
   } catch (err) {
