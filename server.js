@@ -29,7 +29,7 @@ function handleError(res, err){
 
 //endpoints
 app.get('/iv-drop', (req, res) => {
-  res.render('iv-drop');
+  res.sendFile(path.join(__dirname, 'public', 'iv-drop.html'));
 });
 
 // =========================
