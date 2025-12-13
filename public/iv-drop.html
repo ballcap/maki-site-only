@@ -1,196 +1,223 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>点滴管理ツール</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>点滴管理ツール（完全版）</title>
 
 <style>
-/* ---- SAME STYLES (unchanged) ---- */
 :root{--bg:#f2f4f7;--card:#fff;--primary:#4a90e2;--danger:#e25b5b}
-body{font-family:"Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;background:var(--bg);padding:12px;margin:0;color:#222}
-h2{text-align:center;font-size:20px;margin:12px 0}
-input,select,button,textarea{width:100%;padding:10px;margin-top:6px;border-radius:8px;border:1px solid #ccc;box-sizing:border-box;font-size:15px}
-button{background:var(--primary);color:#fff;border:0;font-weight:700;border-radius:10px;padding:10px}
-button.small{padding:6px 8px;font-size:13px;border-radius:8px}
+body{font-family:"Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;background:var(--bg);margin:0;padding:12px}
+h2{text-align:center;margin:10px 0}
+input,select,textarea,button{width:100%;padding:10px;margin-top:6px;border-radius:8px;border:1px solid #ccc;font-size:15px}
+button{background:var(--primary);color:#fff;border:0;font-weight:700}
+button.small{padding:6px;font-size:13px}
 button.warn{background:#ffcccb;color:#800}
-.card{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.06);margin-bottom:18px}
-.list-table{width:100%;border-collapse:collapse;margin-bottom:20px}
-.list-table th,.list-table td{border:1px solid #ccc;padding:8px;text-align:left}
+.card{background:#fff;border-radius:12px;padding:14px;margin-bottom:18px;box-shadow:0 4px 12px rgba(0,0,0,.06)}
+.drip-row{display:flex;gap:8px;margin-bottom:6px}
+.drip-row label{flex:2}
+.drip-row select{flex:1}
+.list-table{width:100%;border-collapse:collapse}
+.list-table th,.list-table td{border:1px solid #ccc;padding:8px;vertical-align:top}
 .list-table th{background:#e9ecef}
 .name-cell{color:#0d6efd;font-weight:700;cursor:pointer;text-decoration:underline}
-.patient-record{background:#fff;border-radius:12px;padding:12px;margin-bottom:12px;box-shadow:0 4px 12px rgba(0,0,0,0.06)}
+.patient-record{background:#fff;border-radius:12px;padding:12px;margin-bottom:12px;box-shadow:0 4px 12px rgba(0,0,0,.06)}
+.small-muted{font-size:12px;color:#666}
 </style>
 </head>
 
 <body>
-<h2>点滴管理ツール</h2>
+
+<h2>点滴管理ツール（完全版）</h2>
 
 <div class="card">
-  <label>患者ID</label>
-  <input id="pid">
+<label>患者ID</label><input id="pid">
+<label>施設名</label>
+<select id="facility">
+<option value="">なし</option>
+<option>くぬぎ</option><option>みさき</option>
+<option>たかねG</option><option>たかね特</option><option>つぼい</option>
+</select>
 
-  <label>患者名</label>
-  <input id="pname">
+<label>患者名（フルネーム）</label><input id="pname">
 
-  <label>施設</label>
-  <select id="facility">
-    <option value="">なし</option>
-    <option>くぬぎ</option>
-    <option>みさき</option>
-    <option>たかねG</option>
-    <option>たかね特</option>
-    <option>つぼい</option>
-  </select>
+<h3>点滴内容（0〜3）</h3>
+<div id="dripContainer">
+<div class="drip-row"><label>ペントシリン1g</label><select class="drip"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+<div class="drip-row"><label>ペントシリン2g</label><select class="drip"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+<div class="drip-row"><label>メロペネム0.5mg</label><select class="drip"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+<div class="drip-row"><label>生食100ml</label><select class="drip"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+<div class="drip-row"><label>生食20ml</label><select class="drip"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+<div class="drip-row"><label>ファモチジン</label><select class="drip"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+<div class="drip-row"><label>ネオラミン3B</label><select class="drip"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+<div class="drip-row"><label>ヴィーンD</label><select class="drip"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+<div class="drip-row"><label>ソルデム3A</label><select class="drip"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+</div>
 
-  <label>開始日</label>
-  <input type="date" id="startdate">
+<label>日数</label><input type="number" id="days" value="1" min="1">
+<label>開始日</label><input type="date" id="start">
+<label>終了日（自動）</label><input type="date" id="end" readonly>
 
-  <label>日数</label>
-  <input type="number" id="days" value="1">
+<h3>尿検査</h3>
+<div class="drip-row"><label>蛋白</label><select id="up"><option>-</option><option>±</option><option>＋1</option><option>＋2</option><option>＋3</option></select></div>
+<div class="drip-row"><label>糖</label><select id="us"><option>-</option><option>±</option><option>＋1</option><option>＋2</option><option>＋3</option></select></div>
+<div class="drip-row"><label>潜血</label><select id="ub"><option>-</option><option>±</option><option>＋1</option><option>＋2</option><option>＋3</option></select></div>
+<div class="drip-row"><label>白血球</label><select id="uw"><option>-</option><option>±</option><option>＋1</option><option>＋2</option><option>＋3</option></select></div>
 
-  <label>備考</label>
-  <textarea id="note"></textarea>
+<h3>備考</h3>
+<textarea id="note" placeholder="特記事項があれば記載"></textarea>
 
-  <button onclick="save()">追加</button>
+<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+<button onclick="save()">追加</button>
+<button onclick="overwrite()">上書き</button>
+<button class="warn small" onclick="delPatient()">削除</button>
+<button class="small" onclick="resetForm()">リセット</button>
+<span class="small-muted">編集中：<span id="editInfo">なし</span></span>
+</div>
 </div>
 
 <h2>患者一覧</h2>
 <table class="list-table">
-<thead>
-<tr><th>ID</th><th>名前</th><th>施設</th><th>期間</th><th>操作</th></tr>
-</thead>
+<thead><tr><th>ID</th><th>名前</th><th>点滴内容</th><th>期間</th></tr></thead>
 <tbody id="list"></tbody>
 </table>
 
-<h2 id="histTitle" style="display:none">履歴</h2>
-<div id="history"></div>
+<h2 id="detailTitle" style="display:none">詳細</h2>
+<div id="detail"></div>
 
 <script>
-/* ===========================
-   PostgreSQL-backed version
-   =========================== */
+let data=JSON.parse(localStorage.getItem("dripData")||"{}");
+let editing=null;
 
-let patients = {};
+function calcEnd(){
+ if(!start.value||!days.value)return;
+ const d=new Date(start.value);
+ d.setDate(d.getDate()+Number(days.value)-1);
+ end.value=d.toISOString().split("T")[0];
+}
+start.onchange=days.oninput=calcEnd;
 
-/* ---------- Utilities ---------- */
-function escapeHtml(s){
-  return String(s||"").replace(/[&<>"']/g,c=>({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  }[c]));
+function getDrips(){
+ return [...document.querySelectorAll("#dripContainer .drip-row")].map(r=>({
+  label:r.querySelector("label").textContent,
+  num:Number(r.querySelector("select").value)
+ }));
 }
 
-/* ---------- Load patients ---------- */
-async function loadPatients(){
-  const res = await fetch("/injection/all");
-  const rows = await res.json();
-
-  patients = {};
-  rows.forEach(r=>{
-    if(!patients[r.patientid]){
-      patients[r.patientid] = { name:r.name, records:[] };
-    }
-    patients[r.patientid].records.push(r);
-  });
-
-  renderList();
+function save(){
+ const id=pid.value.trim(); if(!id)return;
+ if(!data[id]) data[id]={name:pname.value,records:[]};
+ calcEnd();
+ data[id].records.push({
+  facility:facility.value,
+  name:pname.value,
+  drips:getDrips(),
+  start:start.value,
+  end:end.value,
+  urine:{up:up.value,us:us.value,ub:ub.value,uw:uw.value},
+  note:note.value
+ });
+ localStorage.setItem("dripData",JSON.stringify(data));
+ update(); resetForm();
 }
 
-/* ---------- Save ---------- */
-async function save(){
-  const id = pid.value.trim();
-  if(!id){ alert("ID required"); return; }
-
-  const record = {
-    facility: facility.value,
-    start: startdate.value,
-    end: startdate.value,
-    note: note.value
-  };
-
-  await fetch("/injection/add",{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({
-      id,
-      name: pname.value,
-      record
-    })
-  });
-
-  await loadPatients();
-  reset();
+function overwrite(){
+ const id=pid.value.trim();
+ if(!data[id]||!data[id].records.length)return;
+ calcEnd();
+ data[id].records[data[id].records.length-1]={
+  facility:facility.value,
+  name:pname.value,
+  drips:getDrips(),
+  start:start.value,
+  end:end.value,
+  urine:{up:up.value,us:us.value,ub:ub.value,uw:uw.value},
+  note:note.value
+ };
+ localStorage.setItem("dripData",JSON.stringify(data));
+ update(); resetForm();
 }
 
-/* ---------- Render list ---------- */
-function renderList(){
-  list.innerHTML = "";
-  for(const id in patients){
-    const p = patients[id];
-    const last = p.records[p.records.length-1];
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${id}</td>
-      <td class="name-cell" onclick="showHistory('${id}')">${escapeHtml(p.name)}</td>
-      <td>${escapeHtml(last.facility||"-")}</td>
-      <td>${escapeHtml(last.startdate||"-")}</td>
-      <td>
-        <button class="small warn" onclick="deletePatient('${id}')">削除</button>
-      </td>
-    `;
-    list.appendChild(tr);
-  }
+function delPatient(){
+ if(!pid.value||!data[pid.value])return;
+ if(confirm("患者を削除しますか？")){
+  delete data[pid.value];
+  localStorage.setItem("dripData",JSON.stringify(data));
+  update(); resetForm();
+ }
 }
 
-/* ---------- History ---------- */
-async function showHistory(id){
-  histTitle.style.display = "block";
-  history.innerHTML = "";
-
-  const res = await fetch(`/injection/history/${id}`);
-  const rows = await res.json();
-
-  rows.forEach(r=>{
-    const div = document.createElement("div");
-    div.className = "patient-record";
-    div.innerHTML = `
-      <b>施設:</b> ${escapeHtml(r.facility||"-")}<br>
-      <b>開始:</b> ${escapeHtml(r.startdate||"-")}<br>
-      <b>備考:</b> ${escapeHtml(r.note||"-")}<br>
-      <button class="small warn" onclick="deleteRecord(${r.recordid},'${id}')">削除</button>
-    `;
-    history.appendChild(div);
-  });
+function update(){
+ list.innerHTML="";
+ const today=new Date().toISOString().split("T")[0];
+ const rows=[];
+ for(const id in data){
+  const r=data[id].records.slice(-1)[0];
+  if(!r.drips.some(d=>d.num>=1))continue;
+  rows.push({id,r,ended:r.end<today});
+ }
+ rows.sort((a,b)=>a.ended-b.ended||a.r.end.localeCompare(b.r.end));
+ rows.forEach(o=>{
+  const tr=document.createElement("tr");
+  tr.innerHTML=`
+  <td>${o.id}</td>
+  <td class="name-cell" onclick="show('${o.id}')">${data[o.id].name}</td>
+  <td>${o.r.drips.filter(d=>d.num>=1).map(d=>`${d.label}×${d.num}`).join("<br>")}</td>
+  <td>${o.r.start}〜${o.r.end}</td>`;
+  list.appendChild(tr);
+ });
 }
 
-/* ---------- Delete ---------- */
-async function deletePatient(id){
-  if(!confirm("削除しますか？")) return;
-  await fetch(`/injection/patient/${id}`,{method:"DELETE"});
-  histTitle.style.display="none";
-  history.innerHTML="";
-  loadPatients();
+function show(id){
+ detail.innerHTML=""; detailTitle.style.display="block";
+ data[id].records.forEach((r,i)=>{
+  const d=document.createElement("div");
+  d.className="patient-record";
+  d.innerHTML=`
+  <b>患者名:</b> ${data[id].name}<br>
+  <b>施設:</b> ${r.facility}<br>
+  <b>点滴:</b><br>
+  ${r.drips.filter(d=>d.num>=1).map(d=>`${d.label}×${d.num}`).join("<br>")}<br>
+  <b>期間:</b> ${r.start}〜${r.end}<br>
+  <b>尿:</b> 蛋白${r.urine.up} 糖${r.urine.us} 潜血${r.urine.ub} 白血球${r.urine.uw}<br>
+  <b>備考:</b> ${r.note||"-"}<br>
+  <button class="small" onclick="load('${id}',${i})">訂正</button>
+  <button class="small warn" onclick="delRec('${id}',${i})">削除</button>`;
+  detail.appendChild(d);
+ });
 }
 
-async function deleteRecord(rid,id){
-  if(!confirm("履歴を削除しますか？")) return;
-  await fetch(`/injection/record/${rid}`,{method:"DELETE"});
-  showHistory(id);
-  loadPatients();
+function load(id,i){
+ const r=data[id].records[i];
+ pid.value=id;
+ pname.value=data[id].name;
+ facility.value=r.facility;
+ r.drips.forEach((d,j)=>document.querySelectorAll(".drip")[j].value=d.num);
+ start.value=r.start;
+ end.value=r.end;
+ up.value=r.urine.up; us.value=r.urine.us;
+ ub.value=r.urine.ub; uw.value=r.urine.uw;
+ note.value=r.note||"";
+ editing={id,i};
+ editInfo.textContent=`${id} #${i+1}`;
 }
 
-/* ---------- Reset ---------- */
-function reset(){
-  pid.value="";
-  pname.value="";
-  facility.value="";
-  startdate.value="";
-  days.value=1;
-  note.value="";
+function delRec(id,i){
+ if(confirm("この履歴を削除しますか？")){
+  data[id].records.splice(i,1);
+  if(!data[id].records.length) delete data[id];
+  localStorage.setItem("dripData",JSON.stringify(data));
+  update(); detail.innerHTML="";
+ }
 }
 
-/* ---------- Init ---------- */
-loadPatients();
+function resetForm(){
+ editing=null; editInfo.textContent="なし";
+ document.querySelectorAll("input,select,textarea").forEach(e=>e.value="");
+ days.value=1;
+}
+
+update();
 </script>
 </body>
 </html>
